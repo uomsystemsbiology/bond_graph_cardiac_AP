@@ -27,7 +27,7 @@ W_i = 38;
 W_e = 5.182;
 
 %% Run simulation
-tspan = [0 0.8];
+tspan = [0 3];
 [VOI,STATES,CONSTANTS] = cardiac_AP_exported(tspan,'con');
 % Compute algebraic variables
 [RATES,ALGEBRAIC] = cardiac_AP_exported_computeRates(VOI, STATES, CONSTANTS);
@@ -35,12 +35,25 @@ ALGEBRAIC = cardiac_AP_exported_computeAlgebraic(ALGEBRAIC, CONSTANTS, STATES, V
 t = VOI;
 
 %% Plot membrane voltage
-h1 = figure;
+h1a = figure;
 V = 1000*ALGEBRAIC(:,15);
 plot(1000*(t-0.3),V,'k','LineWidth',2);
 xlabel('Time (ms)');
 ylabel('Voltage (mV)');
-xlim(1000*[-0.1 0.4]);
+h_arrow = annotation('arrow',[0.5 0.35],[0.45 0.23]);
+h_arrow.LineWidth = 2;
+h_arrow.HeadLength = 20;
+h_arrow.HeadWidth = 20;
+xlim(1000*[-0.1 0.3]);
+set(gca,'FontSize',16);
+
+%% Plot membrane voltage over three beats
+h1b = figure;
+V = 1000*ALGEBRAIC(:,15);
+plot(1000*(t-0.3),V,'k','LineWidth',2);
+xlabel('Time (ms)');
+ylabel('Voltage (mV)');
+xlim(1000*[-0.1 2.7]);
 set(gca,'FontSize',16);
 
 %% Plot intracellular calcium concentration
@@ -132,35 +145,41 @@ h5 = figure;
 plot(1000*(t-0.3),P/1e3,'k','LineWidth',2);
 xlabel('Time (ms)');
 ylabel('Power (pW)');
-xlim(1000*[-0.1 0.4]);
+xlim(1000*[-0.1 2.7]);
 set(gca,'FontSize',16);
 
-Idx_post_stim = t>0.3;
-num_pre_stim = sum(t<=0.3);
-E = cumtrapz(t(Idx_post_stim),P(Idx_post_stim));
+E = cumtrapz(t,P);
 
-t_beat = t-0.3;
-V_peak = max(V);
-V_end = V(end);
+idx_ref = find(t >= 1.3,1);
+E_ref = E(idx_ref-1);
+E_plot = E-E_ref;
+
+idx_start = find(t >= 1.3,1)-1;
+idx_end = find(t >= 2.3,1)-1;
+t_beat = t-1.3;
+V_peak = max(V(idx_start:idx_end));
+V_end = V(idx_end);
 V_90 = 0.9*V_end + 0.1*V_peak;
 Idx_repolarised = find((V <= V_90) & (t_beat > 0.02),1);
 Idx_cross = [Idx_repolarised-1 Idx_repolarised];
 APD = interp1(V(Idx_cross),t_beat(Idx_cross),V_90);
 
 h6 = figure;
-plot(1000*[-0.1; 0; t(Idx_post_stim)-0.3],[0; 0; E/1e3],'k','LineWidth',2);
+plot(1000*(t-0.3),E_plot/1e3,'k','LineWidth',2);
 hold on;
-plot(1000*t_beat(Idx_repolarised),E(Idx_repolarised-num_pre_stim)/1e3,'k.','MarkerSize',30);
-text(1000*t_beat(Idx_repolarised)-10,E(Idx_repolarised-num_pre_stim)/1e3-3,['E = ' num2str(round(E(Idx_repolarised-num_pre_stim)/1e3,1)) ' pJ'],...
+plot(1000*[-0.1 2.7],[0 0],'b--','LineWidth',2);
+plot(1000*(t_beat(Idx_repolarised)+1),E_plot(Idx_repolarised)/1e3,'k.','MarkerSize',30);
+text(1000*(t_beat(Idx_repolarised)+1)-15,E_plot(Idx_repolarised)/1e3 - 15,['E = ' num2str(round(E_plot(Idx_repolarised)/1e3,1)) ' pJ'],...
     'Color','k','FontSize',16);
 xlabel('Time (ms)');
 ylabel('Energy (pJ)');
-xlim(1000*[-0.1 0.4]);
+xlim(1000*[-0.1 2.7]);
 set(gca,'FontSize',16);
 
 %% Print figures
 if save_figures
-    print_figure(h1,output_dir,'cardiac_AP_Vm');
+    print_figure(h1a,output_dir,'cardiac_AP_Vm');
+    print_figure(h1b,output_dir,'cardiac_AP_Vm3');
     print_figure(h2,output_dir,'cardiac_AP_Cai');
     print_figure(h3,output_dir,'cardiac_AP_ion_currents');
     print_figure(h4,output_dir,'cardiac_AP_other_currents');
